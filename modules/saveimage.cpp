@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "dso.h"
 #include "socket.h"
 #include "url.h"

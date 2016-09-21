@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "dso.h"
 #include "url.h"
 #include "qstring.h"
