@@ -1,8 +1,11 @@
 #ifndef QURL_H
 #define QURL_H
 
-#include <event.h>
-#include <evdns.h>
+//#include <event.h>
+//#include <evdns.h>
+#include <event2/dns.h>
+#include <event2/util.h>
+#include <event2/event.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

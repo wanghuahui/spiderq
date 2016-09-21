@@ -7,11 +7,14 @@ static queue<Url *> ourl_queue;
 
 static map<string, string> host_ip_map;
 
+struct event_base *g_base = NULL;
+
 static Url * surl2ourl(Surl *url);
-static void dns_callback(int result, char type, int count, int ttl, void *addresses, void *arg);
+static void dns_callback(int errcode, struct evutil_addrinfo *addr, void *ptr);
 static int is_bin_url(char *url);
 static int surl_precheck(Surl *surl);
 static void get_timespec(timespec * ts, int millisecond);
+static void dns_parse(Url *ourl);
 
 pthread_mutex_t oq_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t sq_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -100,6 +103,32 @@ int is_surlqueue_empty()
     return val;
 }
 
+static void dns_parse(Url *ourl)
+{
+    g_base = event_base_new();
+    struct evdns_base *dnsbase = evdns_base_new(g_base, 1);
+    evdns_base_set_option(dnsbase, "randomize-case:", "0");
+
+    struct evutil_addrinfo hints;
+    struct evdns_getaddrinfo_request *req;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags  = EVUTIL_AI_CANONNAME;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    req = evdns_getaddrinfo(dnsbase, ourl->domain, NULL, &hints, dns_callback, ourl);
+    if (NULL == req)
+    {
+        SPIDER_LOG(SPIDER_LEVEL_WARN, "evdns_getaddrinfo returnd immediately");
+    }
+    event_base_dispatch(g_base);
+
+    //释放资源
+    evdns_base_free(dnsbase, 0);
+    event_base_free(g_base);
+    return;
+}
+
 void * urlparser(void *none)
 {
     Surl *url = NULL;
@@ -123,14 +152,17 @@ void * urlparser(void *none)
         itr = host_ip_map.find(ourl->domain);
         if (itr == host_ip_map.end()) { /* not found */
             /* dns resolve */
-            event_base * base = event_init();
-            evdns_init();
-            evdns_resolve_ipv4(ourl->domain, 0, dns_callback, ourl);
-            event_dispatch();
-            event_base_free(base);
+			//g_base = event_base_new();
+			//struct evdns_base *dnsbase = evdns_base_new(base, 1);
+            //event_base * base = event_init();
+            //evdns_init();
+            //evdns_resolve_ipv4(ourl->domain, 0, dns_callback, ourl);
+            //event_dispatch();
+            //event_base_free(base);
 
             //evdns_base_resolve_ipv4(dnsbase, ourl->domain, 0, dns_callback, ourl);
             //event_base_loop(base, EVLOOP_ONCE | EVLOOP_NONBLOCK);
+			dns_parse(ourl);
         } else {
             ourl->ip = strdup(itr->second.c_str());
             push_ourlqueue(ourl);
@@ -264,21 +296,45 @@ int iscrawled(char * url) {
     return search(url); /* use bloom filter algorithm */
 }
 
-static void dns_callback(int result, char type, int count, int ttl, void *addresses, void *arg) 
-{
-    Url * ourl = (Url *)arg;
-    struct in_addr *addrs = (in_addr *)addresses;
+//static void dns_callback(int result, char type, int count, int ttl, void *addresses, void *arg) 
+//{
+//    Url * ourl = (Url *)arg;
+//    struct in_addr *addrs = (in_addr *)addresses;
+//
+//    if (result != DNS_ERR_NONE || count == 0) {
+//        SPIDER_LOG(SPIDER_LEVEL_WARN, "Dns resolve fail: %s", ourl->domain);
+//    } else {
+//        char * ip = inet_ntoa(addrs[0]);
+//        SPIDER_LOG(SPIDER_LEVEL_DEBUG, "Dns resolve OK: %s -> %s", ourl->domain, ip);
+//        host_ip_map[ourl->domain] = strdup(ip);
+//        ourl->ip = strdup(ip);
+//        push_ourlqueue(ourl);
+//    }
+//    event_loopexit(NULL); // not safe for multithreads 
+//}
 
-    if (result != DNS_ERR_NONE || count == 0) {
-        SPIDER_LOG(SPIDER_LEVEL_WARN, "Dns resolve fail: %s", ourl->domain);
+static void dns_callback(int errcode, struct evutil_addrinfo *addr, void *ptr)
+{
+    Url *ourl = (Url *)ptr;
+    if (errcode) {
+        SPIDER_LOG(SPIDER_LEVEL_WARN, "Dns resolve fail: %s, error: %s", ourl->domain, evutil_gai_strerror(errcode));
     } else {
-        char * ip = inet_ntoa(addrs[0]);
-        SPIDER_LOG(SPIDER_LEVEL_DEBUG, "Dns resolve OK: %s -> %s", ourl->domain, ip);
-        host_ip_map[ourl->domain] = strdup(ip);
-        ourl->ip = strdup(ip);
-        push_ourlqueue(ourl);
+        struct evutil_addrinfo *ai;
+        ai = addr;
+        char buf[128];
+		const char *ip = NULL;
+        if (ai->ai_family == AF_INET)
+        {
+            struct sockaddr_in *sin = (struct sockaddr_in *)ai->ai_addr;
+            ip = evutil_inet_ntop(AF_INET, &sin->sin_addr, buf, 128);
+            SPIDER_LOG(SPIDER_LEVEL_DEBUG, "Dns resolve OK: %s -> %s", ourl->domain, ip);
+            host_ip_map[ourl->domain] = strdup(ip);
+            ourl->ip = strdup(ip);
+            push_ourlqueue(ourl);
+        }
+        evutil_freeaddrinfo(addr);
     }
-    event_loopexit(NULL); // not safe for multithreads 
+    event_base_loopexit(g_base, NULL); // not safe for multithreads 
 }
 
 static Url * surl2ourl(Surl * surl)

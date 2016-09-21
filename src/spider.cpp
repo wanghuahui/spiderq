@@ -135,8 +135,10 @@ int main(int argc, void *argv[])
         if (n <= 0) {
             if (g_cur_thread_num <= 0 && is_ourlqueue_empty() && is_surlqueue_empty()) {
                 sleep(1);
+				printf("epoll:%d, thread_num:%d\n", n, g_cur_thread_num);
                 if (g_cur_thread_num <= 0 && is_ourlqueue_empty() && is_surlqueue_empty())
-                    break;
+					printf("2 epoll:%d, thread_num:%d\n", n, g_cur_thread_num);
+					break;
             }
         }
 
