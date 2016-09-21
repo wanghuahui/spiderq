@@ -6,6 +6,7 @@ Spiderq is a Web Spider to crawl webpage(html) by Qteqpid. The performance depen
 Building spiderq
 ================
 Spiderq can be compiled and used on Centos 5.8 .
+Using [libevent](http://libevent.org/) to parse dns async, only support ipv4. The version is libevent-2.1.5-beta.tar.gz. 
 It is as simple as:
 
     % make
@@ -27,11 +28,11 @@ blog: http://hi.baidu.com/qteqpid_pku
 
 TODO
 ===============
-@线程池
-@信号处理
-@网页内容排重
-@同一ip间隔抓取
-@层次结构存储网页
-@是否遵守robots.txt
-@支持更新抓取，不重复抓
-@定义对外api和html类，方便用户自定义处理html，动态加载方式
+- @线程池
+- @信号处理
+- @网页内容排重
+- @同一ip间隔抓取
+- @层次结构存储网页
+- @是否遵守robots.txt
+- @支持更新抓取，不重复抓
+- @定义对外api和html类，方便用户自定义处理html，动态加载方式
