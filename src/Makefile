@@ -19,7 +19,7 @@ all: $(TARGET)
 	@if [ ! -d ../download ]; then mkdir ../download; fi
 
 $(TARGET): $(OBJS)
-	$(CXX) -o $@ $(REAL_LDFLAGS) $^
+	$(CXX) -o $@  $^ $(REAL_LDFLAGS)
 
 .cpp.o:
 	$(CXX) -c $(REAL_CXXFLAGS) $<
@@ -35,6 +35,6 @@ gprof:
 	$(MAKE) PROF="-pg" 
 
 install:
-	-cp -f $(TARGET) ../
+	-cp -af $(TARGET) ../
 
 .PHONY: all clean debug gprof install
